@@ -10,22 +10,28 @@ import javassist.CtField;
 import javassist.CtMethod;
 import javassist.Loader;
 
-@SuppressWarnings("all")
+//@SuppressWarnings("all")
 public class Inst {
 
-	public static String className = null;
+	public static String targetClassName = null;
 	
 	public static void premain(Instrumentation inst, String args[]) {
 		redefineable(args[0]);
 	}
 
-	public static void redefineable(String c) {
-		className = c;
+	/**
+	 * 引数に渡されたクラスを，変更可能にする
+	 * @param className
+	 */
+	public static void redefineable(String className) {
+		targetClassName = className;
 		try {
-			Class<?> cl = makeClass(c);
-
+			// 対象クラスのCloneを生成
+			Class<?> cl = makeClass(className);
+			
+			// 対象クラスをProzy化
 			ClassPool cp = ClassPool.getDefault();
-			CtClass target = cp.get(c);
+			CtClass target = cp.get(className);
 			target.addField(CtField.make(
 					"private static java.lang.Object stub_clone = new "
 							+ cl.getName() + "();", target));
@@ -48,6 +54,11 @@ public class Inst {
 		}
 	}
 
+	/**
+	 * 引数に渡されたクラスのクローンを生成する
+	 * @param className
+	 * @return
+	 */
 	public static Class makeClass(String className) {
 		ClassPool cp = ClassPool.getDefault();
 		// create $Clone_"+className+"
@@ -62,10 +73,15 @@ public class Inst {
 		return null;
 	}
 	
+	/**
+	 * 引数に渡せれたメソッド名と同名のメソッド内処理を，引数のメソッドバリューに変更
+	 * @param methodName
+	 * @param methodValue
+	 */
 	public static void defineTarget(String methodName, String methodValue) {
 		try {
 			Object o = define(methodName, methodValue).newInstance();
-			Class c = Class.forName(className);
+			Class c = Class.forName(targetClassName);
 			Method[] mm = c.getDeclaredMethods();
 			Method m = c.getDeclaredMethod("set_Stub", Object.class);
 			m.invoke(null, o);
@@ -74,12 +90,18 @@ public class Inst {
 		}
 	}
 
+	/**
+	 * クラスの動的生成
+	 * @param methodName
+	 * @param methodValue
+	 * @return
+	 */
 	public static Class define(String methodName, String methodValue) {
 		ClassPool cp = ClassPool.getDefault();
 
 		// create $Clone_"+className+"
 		try {
-			CtClass targetC = cp.get("$Clone_"+className+"");
+			CtClass targetC = cp.get("$Clone_"+targetClassName+"");
 			targetC.defrost();
 			CtMethod targetM = targetC.getDeclaredMethod(methodName);
 			targetM.insertBefore(methodValue);
@@ -91,4 +113,6 @@ public class Inst {
 		return null;
 	}
 
+	
+	
 }
