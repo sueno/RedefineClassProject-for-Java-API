@@ -13,9 +13,27 @@ public class TestStub {
 		obj = o;
 	}
 	public int test_Num () {
-		return num;
+		return 1;
 	}
 	public Object test_Obj () {
+		return "str";
+	}
+	public int getNum() {
+		return num;
+	}
+	public void setNum(int num) {
+		this.num = num;
+	}
+	public Object getObj() {
 		return obj;
+	}
+	public void setObj(Object obj) {
+		this.obj = obj;
+	}
+	public String getStr() {
+		return str;
+	}
+	public void setStr(String str) {
+		this.str = str;
 	}
 }

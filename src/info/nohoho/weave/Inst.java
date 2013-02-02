@@ -10,8 +10,9 @@ import javassist.CtConstructor;
 import javassist.CtField;
 import javassist.CtMethod;
 import javassist.Loader;
+import javassist.Modifier;
 
-//@SuppressWarnings("all")
+@SuppressWarnings("all")
 public class Inst {
 
 	public static String targetClassName = null;
@@ -30,7 +31,8 @@ public class Inst {
 	/**
 	 * 引数に渡されたクラスを，変更可能にする
 	 * 
-	 * @param className 変更可能とするクラス名
+	 * @param className
+	 *            変更可能とするクラス名
 	 * @return 成功，失敗
 	 */
 	public static boolean redefineable(String className) {
@@ -43,28 +45,62 @@ public class Inst {
 			 * 対象クラスをProxy化
 			 */
 			ClassPool cp = ClassPool.getDefault();
+			cp.importPackage("info.nohoho.weave");
 			CtClass target = cp.get(className);
 			// 実体のインスタンスを保持するフィールドを定義
-			target.addField(CtField.make("private static java.lang.Object stub_clone;", target));// = new " + cl.getName() + "();", target));
+			target.addField(CtField.make("private static java.lang.Class _cloneClass = "+cl.getName()+".class;", target));
+			target.addField(CtField.make("private java.lang.Object _stub_clone = null;", target));// = new " + cl.getName() + "();", target));
 			//コンストラクタの引数を保持するフィールドを定義
-			target.addField(CtField.make("private static java.lang.Object[] _const_param;", target));
+			target.addField(CtField.make("private java.lang.Class[] _const_sig = null;", target));
+			target.addField(CtField.make("private java.lang.Object[] _const_param = null;", target));
+		
 			// コンストラクタの引数をフィールドに格納，実体生成時の引数として扱う
 			CtConstructor[] consts = target.getDeclaredConstructors();
 			for (CtConstructor co : consts) {
-				co.insertBefore("_const_param = $args; stub_clone = new " + cl.getName() + "($$);");
+				co.insertBefore("_const_sig = $sig;"
+								+"_const_param = $args;"
+								+"System.err.println(\"TEST : \");"
+//								+"this.addObj();"
+//								+"info.nohoho.weave.WeaveClassList.registObject(_stub_clone);"
+//								+"Class.forName(\"info.nohoho.weave.WeaveClassList\").getDeclaredMethod(\"registObject\",new Class[]{Object.class,Class[].class,Object[].class}).invoke(_stub_clone,new Object[]{_stub_clone,$sig,$args});"
+								);
 			}
 			// 対象クラスのメソッドの処理を置き換え
 			// 実体インスタンスへのメソッド呼び出しを行う処理に置き換え(リフレクションで呼び出す)
 			CtMethod[] methods = target.getDeclaredMethods();
 			for (CtMethod m : methods) {
-				StringBuilder sb = new StringBuilder();
-				sb.append("try{");
-				sb.append("return ($r)stub_clone.getClass().getDeclaredMethod(\"" + m.getName() + "\",$sig).invoke(stub_clone, $args);");
-				sb.append("}catch(java.lang.reflect.InvocationTargetException iex) {");
-				sb.append("throw iex.getCause(); }");
-				m.setBody("" + sb);
+				String fieldcheck = "";
+				if (!Modifier.isStatic(m.getModifiers())) {
+					fieldcheck = "System.out.println(\"check...\");"
+							+"if (_stub_clone==null) {"
+								+"this.class.getDeclaredMathod(\"addObj\",new Class[0]).invoke(this,new Object[0]);"
+							+"}";
+				}
+				m.setBody(
+						"try{"
+							+ fieldcheck
+							+"return ($r)_stub_clone.getClass().getDeclaredMethod(\"" + m.getName() + "\",$sig).invoke(_stub_clone, $args);"
+						+"}catch(java.lang.reflect.InvocationTargetException iex) {"
+							+"throw iex.getCause();"
+						+"}");
 			}
-			target.addMethod(CtMethod.make("public static void set_Stub(Object stub) {stub_clone = stub;}", target));
+			
+			//target.addMethod(CtMethod.make("public static void set_Stub(Object stub) {_stub_clone = stub;}", target));
+			target.addMethod(CtMethod.make(
+						"public void set_Stub(Class stubClass) {"
+							+"if (_const_sig!=null&&_const_sig.length!=0) {"
+								+"_stub_clone = stubClass.getConstructor(_const_sig).newInstance(_const_param);"
+							+"} else {"
+								+"_stub_clone = stubClass.newInstance();"
+							+"}"
+						+"}",
+						target));
+			target.addMethod(CtMethod.make(
+					"public void addObj() {"
+						+"set_Stub(_cloneClass);"
+						+"info.nohoho.weave.WeaveClassList.registObject(_stub_clone);"
+					+"}",
+					target));
 			// 対象クラスのロード
 			target.toClass(Thread.currentThread().getContextClassLoader());
 			return true;
@@ -80,12 +116,12 @@ public class Inst {
 	 * @param className
 	 * @return
 	 */
-	public static Class makeClass(String className) {
+	protected static Class makeClass(String className) {
 		ClassPool cp = ClassPool.getDefault();
 		// create $Clone_"+className+"
 		try {
 			CtClass targetC = cp.get(className);
-			targetC.setName("$Clone_" + className + "");
+			targetC.setName(getCloneName(className));
 			return targetC.toClass(Thread.currentThread().getContextClassLoader());
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -99,16 +135,17 @@ public class Inst {
 	 * @param methodName
 	 * @param methodValue
 	 */
-	public static void defineTarget(String methodName, String methodValue) {
+	public static boolean defineTarget(String className, String methodName, String methodValue) {
 		try {
-			Object o = define(methodName, methodValue).newInstance();
-			Class c = Class.forName(targetClassName);
-			Method[] mm = c.getDeclaredMethods();
-			Method m = c.getDeclaredMethod("set_Stub", Object.class);
-			m.invoke(null, o);
+			Class<?> c = Class.forName(className);
+//			Method m = c.getDeclaredMethod("set_Stub", Class.class);
+//				m.invoke(null, define(methodName, methodValue));
+			WeaveClassList.reloadObject(c,define(className,methodName, methodValue));
+			return true;
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
+		return false;
 	}
 
 	/**
@@ -118,12 +155,12 @@ public class Inst {
 	 * @param methodValue
 	 * @return
 	 */
-	public static Class define(String methodName, String methodValue) {
+	protected static Class define(String className, String methodName, String methodValue) {
 		ClassPool cp = ClassPool.getDefault();
 
 		// create $Clone_"+className+"
 		try {
-			CtClass targetC = cp.get("$Clone_" + targetClassName + "");
+			CtClass targetC = cp.get(getCloneName(className));
 			targetC.defrost();
 			CtMethod targetM = targetC.getDeclaredMethod(methodName);
 			targetM.insertBefore(methodValue);
@@ -135,4 +172,9 @@ public class Inst {
 		return null;
 	}
 
+	private static String getCloneName(String className) {
+		String[] str = className.split("\\.");
+		return "$Clone_"+str[str.length-1];
+	}
+	
 }
