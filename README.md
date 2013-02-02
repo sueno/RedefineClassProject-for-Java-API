@@ -1,10 +1,12 @@
-���I�N���X�ύX�c�[���@�W��JavaAPI �Ή��Ł@(�������D�D�D)
+動的クラス変更ツール　標準JavaAPI 対応版　(実装中．．．)
 ---
-java.lang�Ȃǂ̕W��API�̃N���X�̍Ē�`�Ή���
+java.langなどの標準APIのクラスの処理を変更する
 
-�C�ӂ̃��\�b�h�̏���(��ɖ߂�l)��ύX�\
+任意のメソッドの処理(主に戻り値)を変更可能
 
 
-�p�r
+
+
+用途
 ---
-�W��API���g�p���Ă���N���X�̃e�X�g
+標準APIを使用しているクラスのテスト
