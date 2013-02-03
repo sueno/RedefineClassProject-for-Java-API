@@ -1,6 +1,6 @@
 package test;
 
-public class TestStub {
+public class TestStub implements StubInterface{
 	private int num = 0;
 	private Object obj = null;
 	private String str = null;

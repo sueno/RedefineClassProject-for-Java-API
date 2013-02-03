@@ -9,7 +9,7 @@ public class Stub_Clone {
 
 	private static String a;
 	private TestStub ts = new TestStub(3);
-
+	
 	public static void main (String[] args) {
 		Stub_Clone s = new Stub_Clone("s");
 	}
@@ -23,6 +23,7 @@ public class Stub_Clone {
 	}
 	
 	public void sss () {
+		System.out.println(""+a);
 		info.nohoho.weave.WeaveClassList.registObject(ts);
 	}
 }

@@ -15,7 +15,7 @@ import javassist.Modifier;
 @SuppressWarnings("all")
 public class Inst {
 
-	public static String targetClassName = null;
+//	public static String targetClassName = null;
 	public static CtClass original_Target = null;
 
 	/**
@@ -36,7 +36,7 @@ public class Inst {
 	 * @return 成功，失敗
 	 */
 	public static boolean redefineable(String className) {
-		targetClassName = className;
+//		targetClassName = className;
 		try {
 			// 対象クラスのClone(実体)を生成
 			Class<?> cl = makeClass(className);
@@ -49,45 +49,26 @@ public class Inst {
 			CtClass target = cp.get(className);
 			// 実体のインスタンスを保持するフィールドを定義
 			target.addField(CtField.make("private static java.lang.Class _cloneClass = "+cl.getName()+".class;", target));
-			target.addField(CtField.make("private java.lang.Object _stub_clone = null;", target));// = new " + cl.getName() + "();", target));
+			target.addField(CtField.make("private boolean __flag = false;", target));
+			target.addField(CtField.make("private java.lang.Object _stub_clone;", target));// = new " + cl.getName() + "();", target));
 			//コンストラクタの引数を保持するフィールドを定義
 			target.addField(CtField.make("private java.lang.Class[] _const_sig = null;", target));
 			target.addField(CtField.make("private java.lang.Object[] _const_param = null;", target));
 		
+			
 			// コンストラクタの引数をフィールドに格納，実体生成時の引数として扱う
 			CtConstructor[] consts = target.getDeclaredConstructors();
 			for (CtConstructor co : consts) {
-				co.insertBefore("_const_sig = $sig;"
+				co.insertAfter(""
+								+"_stub_clone = new "+cl.getName()+"($$);"
+								+"_const_sig = $sig;"
 								+"_const_param = $args;"
-								+"System.err.println(\"TEST : \");"
-//								+"this.addObj();"
-//								+"info.nohoho.weave.WeaveClassList.registObject(_stub_clone);"
-//								+"Class.forName(\"info.nohoho.weave.WeaveClassList\").getDeclaredMethod(\"registObject\",new Class[]{Object.class,Class[].class,Object[].class}).invoke(_stub_clone,new Object[]{_stub_clone,$sig,$args});"
 								);
 			}
-			// 対象クラスのメソッドの処理を置き換え
-			// 実体インスタンスへのメソッド呼び出しを行う処理に置き換え(リフレクションで呼び出す)
-			CtMethod[] methods = target.getDeclaredMethods();
-			for (CtMethod m : methods) {
-				String fieldcheck = "";
-				if (!Modifier.isStatic(m.getModifiers())) {
-					fieldcheck = "System.out.println(\"check...\");"
-							+"if (_stub_clone==null) {"
-								+"this.class.getDeclaredMathod(\"addObj\",new Class[0]).invoke(this,new Object[0]);"
-							+"}";
-				}
-				m.setBody(
-						"try{"
-							+ fieldcheck
-							+"return ($r)_stub_clone.getClass().getDeclaredMethod(\"" + m.getName() + "\",$sig).invoke(_stub_clone, $args);"
-						+"}catch(java.lang.reflect.InvocationTargetException iex) {"
-							+"throw iex.getCause();"
-						+"}");
-			}
-			
-			//target.addMethod(CtMethod.make("public static void set_Stub(Object stub) {_stub_clone = stub;}", target));
+
+			// 実体参照の変更メソッドを追加
 			target.addMethod(CtMethod.make(
-						"public void set_Stub(Class stubClass) {"
+						"public void _set_Stub(Class stubClass) {"
 							+"if (_const_sig!=null&&_const_sig.length!=0) {"
 								+"_stub_clone = stubClass.getConstructor(_const_sig).newInstance(_const_param);"
 							+"} else {"
@@ -95,12 +76,39 @@ public class Inst {
 							+"}"
 						+"}",
 						target));
-			target.addMethod(CtMethod.make(
-					"public void addObj() {"
-						+"set_Stub(_cloneClass);"
-						+"info.nohoho.weave.WeaveClassList.registObject(_stub_clone);"
-					+"}",
-					target));
+			// 対象クラスのメソッドの処理を置き換え
+			// 実体インスタンスへのメソッド呼び出しを行う処理に置き換え(リフレクションで呼び出す)
+			CtMethod[] methods = target.getDeclaredMethods();
+			for (CtMethod m : methods) {
+				String fieldcheck = "";
+				if (!Modifier.isStatic(m.getModifiers())) {
+					fieldcheck = ""
+							+"if (!_stub_clone.getClass().equals(_cloneClass)) {"
+//								+"this.class.getDeclaredMathod(\"addObj\",new Class[0]).invoke(this,new Object[0]);"
+//								+"_stub_clone = new "+cl.getName()+"(_const_param);"
+								+"_set_Stub(_cloneClass);"
+//								+"info.nohoho.weave.WeaveClassList.registObject(this);"
+							+"}"
+							;
+				}
+//				System.out.println("Method : "+m.getLongName()+"\naddsrc : "+fieldcheck+"\n");
+				if (m.getName().equals("_set_Stub")) {
+//					m.insertBefore("if (!__flag)info.nohoho.weave.WeaveClassList.registObject(this);");
+				}else{
+					m.setBody(
+								"try{"
+									+ fieldcheck
+									+"return ($r)_stub_clone.getClass().getDeclaredMethod(\"" + m.getName() + "\",$sig).invoke(_stub_clone, $args);"
+								+"}catch(java.lang.reflect.InvocationTargetException iex) {"
+									+"throw iex.getCause();"
+								+"}");
+				}
+			}
+
+			target.addMethod(CtMethod.make("public static void _set_cloneClass (Class c) {"
+												+"_cloneClass = c;"
+											+"}"
+											, target));
 			// 対象クラスのロード
 			target.toClass(Thread.currentThread().getContextClassLoader());
 			return true;
@@ -137,13 +145,15 @@ public class Inst {
 	 */
 	public static boolean defineTarget(String className, String methodName, String methodValue) {
 		try {
-			Class<?> c = Class.forName(className);
+			Class<?> oldClass = Class.forName(className);
+			Class<?> newClass = define(className,methodName, methodValue);
+			oldClass.getDeclaredMethod("_set_cloneClass", new Class[]{Class.class}).invoke(null, new Object[]{newClass});
 //			Method m = c.getDeclaredMethod("set_Stub", Class.class);
 //				m.invoke(null, define(methodName, methodValue));
-			WeaveClassList.reloadObject(c,define(className,methodName, methodValue));
+//			WeaveClassList.reloadObject(oldClass, newClass);
 			return true;
 		} catch (Exception ex) {
-			ex.printStackTrace();
+//			ex.printStackTrace();
 		}
 		return false;
 	}

@@ -45,12 +45,16 @@ public class WeaveClassList {
 	 */
 	public static final boolean reloadObject(Class<?> proxyClass, Class<?> targetClass) {
 		try {
-			Method m = proxyClass.getDeclaredMethod("set_Stub", Class.class);
-			Map<Object, Object> map = objMap.get(targetClass.getName());
-			synchronized (map) {
-				for (Entry<Object,Object> e : map.entrySet()) {
-					m.invoke(e.getKey(), targetClass);
+			Method m = proxyClass.getDeclaredMethod("_set_Stub", Class.class);
+			Map<Object, Object> map = objMap.get(proxyClass.getName());
+			if (map != null) {
+				synchronized (map) {
+					for (Entry<Object, Object> e : map.entrySet()) {
+						m.invoke(e.getKey(), new Object[] { targetClass });
+					}
 				}
+			} else {
+				return false;
 			}
 			return true;
 		} catch (Exception ex) {
@@ -58,8 +62,8 @@ public class WeaveClassList {
 			return false;
 		}
 	}
-	
-	public static final Map<Object, Object> getMap (String key) {
+
+	public static final Map<Object, Object> getMap(String key) {
 		return objMap.get(key);
 	}
 }

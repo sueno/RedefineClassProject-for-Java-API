@@ -3,6 +3,7 @@ package test;
 import info.nohoho.weave.Inst;
 
 public class Main {
+	
 	public static void main(String[] args) throws Exception{
 
 
@@ -10,7 +11,7 @@ public class Main {
 		Inst.redefineable("test.TestStub");
 		
 		// Stubクラスを生成
-		TestStub fc = new TestStub();
+		StubInterface fc = new TestStub();
 
 		// 通常の呼び出し
 		System.err.println("Called Stub.hoge()");
