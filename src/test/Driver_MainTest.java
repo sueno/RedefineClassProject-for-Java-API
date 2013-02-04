@@ -11,21 +11,31 @@ import org.junit.Test;
 
 public class Driver_MainTest extends TestCase{
 	
-	static {
-		Weave.redefineable("test.TestStub");
-	}
 	
 	private StubInterface ts;
 	
+	// 変更するメソッド
 	private static Method getNum_Method;
 	private static Method getObj_Method;
 	private static Method getStr_Method;
 	
+	static {
+		// test.TestStub クラスを変更可能にする
+		Weave.redefineable("test.TestStub");
+		try {
+			// 変更するメソッドを取得
+			getNum_Method = test.TestStub.class.getDeclaredMethod("getNum", new Class[]{});
+			getObj_Method = test.TestStub.class.getDeclaredMethod("getObj", new Class[]{});
+			getStr_Method = test.TestStub.class.getDeclaredMethod("getStr", new Class[]{});
+		} catch (Exception ex) {
+			
+		}
+	}
+	
+	
 	@Override
 	protected void setUp() throws Exception {
-		getNum_Method = test.TestStub.class.getDeclaredMethod("getNum", new Class[]{});
-		getObj_Method = test.TestStub.class.getDeclaredMethod("getObj", new Class[]{});
-		getStr_Method = test.TestStub.class.getDeclaredMethod("getStr", new Class[]{});
+		// 初期化
 		Weave.defineTarget("test.TestStub","getNum",new Class[]{}, "return num;");
 		Weave.defineTarget("test.TestStub","getObj",new Class[]{}, "return obj;");
 		Weave.defineTarget("test.TestStub","getStr",new Class[]{}, "return str;");

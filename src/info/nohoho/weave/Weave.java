@@ -4,6 +4,10 @@ import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import javassist.CannotCompileException;
 import javassist.ClassPool;
@@ -18,7 +22,10 @@ import javassist.NotFoundException;
 @SuppressWarnings("all")
 public class Weave {
 
-	public static Class original_Target = null;
+	/**
+	 * 再定義可能なクラスの一覧
+	 */
+	private static final Map<String,Class> original_Map = new HashMap<String, Class>();
 
 	/**
 	 * 実行前処理
@@ -27,7 +34,7 @@ public class Weave {
 	 * @param args
 	 */
 	public static void premain(Instrumentation inst, String args[]) {
-		TargetList.getTargets();
+//		TargetList.getTargets();
 	}
 
 	/**
@@ -42,7 +49,7 @@ public class Weave {
 		try {
 			// 対象クラスのClone(実体)を生成
 			Class<?> cl = makeClass(className);
-			original_Target = cl;
+			original_Map.put(className, cl);
 
 			/**
 			 * 対象クラスをProxy化
@@ -141,8 +148,18 @@ public class Weave {
 		return null;
 	}
 
+	public static boolean resetTarget(String className) {
+		try {
+			Class.forName(className).getDeclaredMethod("_set_cloneClass", new Class[]{Class.class}).invoke(null, new Object[]{original_Map.get(className)});
+			return true;
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return true;
+	}
+	
 	/**
-	 * 引数に渡せれたメソッド名と同名のメソッド内処理を，引数のメソッドバリューに変更
+	 * 引数に渡せれたメソッドの処理を，第2引数のソースに変更
 	 * 
 	 * @param methodName
 	 * @param methodValue
@@ -185,7 +202,7 @@ public class Weave {
 		return targetC.toClass(new Loader());
 	}
 
-	private static String getCloneName(String className) {
+	protected static String getCloneName(String className) {
 		String str = className.replaceAll("\\.", "_");
 		return "$Clone_"+str;
 	}
