@@ -1,24 +1,34 @@
 package test;
 
 import static org.junit.Assert.*;
+
+import java.lang.reflect.Method;
+
 import junit.framework.TestCase;
-import info.nohoho.weave.Inst;
+import info.nohoho.weave.Weave;
 
 import org.junit.Test;
 
 public class Driver_MainTest extends TestCase{
 	
 	static {
-		Inst.redefineable("test.TestStub");
+		Weave.redefineable("test.TestStub");
 	}
 	
 	private StubInterface ts;
 	
+	private static Method getNum_Method;
+	private static Method getObj_Method;
+	private static Method getStr_Method;
+	
 	@Override
 	protected void setUp() throws Exception {
-		Inst.defineTarget("test.TestStub","getNum", "return num;");
-		Inst.defineTarget("test.TestStub","getObj", "return obj;");
-		Inst.defineTarget("test.TestStub","getStr", "return str;");
+		getNum_Method = test.TestStub.class.getDeclaredMethod("getNum", new Class[]{});
+		getObj_Method = test.TestStub.class.getDeclaredMethod("getObj", new Class[]{});
+		getStr_Method = test.TestStub.class.getDeclaredMethod("getStr", new Class[]{});
+		Weave.defineTarget("test.TestStub","getNum",new Class[]{}, "return num;");
+		Weave.defineTarget("test.TestStub","getObj",new Class[]{}, "return obj;");
+		Weave.defineTarget("test.TestStub","getStr",new Class[]{}, "return str;");
 		super.setUp();
 	}
 	
@@ -43,21 +53,21 @@ public class Driver_MainTest extends TestCase{
 	@Test
 	public void test_redef_nonP() {
 		ts = new TestStub();
-		Inst.defineTarget("test.TestStub","getNum", "return -1;");
+		Weave.defineTarget(getNum_Method, "return -1;");
 		assertEquals(-1, ts.getNum());
 	}
 	
 	@Test
 	public void test_redef_preP() {
 		ts = new TestStub(2);
-		Inst.defineTarget("test.TestStub","getObj", "return new String(\"hoge-\");");
+		Weave.defineTarget(getObj_Method, "return new String(\"hoge-\");");
 		assertEquals(2, ts.getNum());
 	}
 	
 	@Test
 	public void test_redef_objP() {
 		ts = new TestStub(2);
-		Inst.defineTarget("test.TestStub","getNum", "return -1;");
+		Weave.defineTarget(getNum_Method, "return -1;");
 		assertEquals(null, ts.getObj());
 	}
 	
@@ -65,7 +75,7 @@ public class Driver_MainTest extends TestCase{
 	public void test_2obj_1() {
 		ts = new TestStub(3);
 		TestStub tss = new TestStub(5);
-		Inst.defineTarget("test.TestStub", "getNum", "return num*3;");
+		Weave.defineTarget(getNum_Method, "return num*3;");
 		assertEquals(9, ts.getNum());
 	}
 
@@ -73,8 +83,24 @@ public class Driver_MainTest extends TestCase{
 	public void test_2obj_2() {
 		ts = new TestStub(3);
 		TestStub tss = new TestStub(5);
-		Inst.defineTarget("test.TestStub", "getNum", "return num*3;");
+		Weave.defineTarget(getNum_Method, "return num*3;");
 		assertEquals(15, tss.getNum());
+	}
+	
+	@Test
+	public void test_field_1() {
+		ts = new TestStub();
+		ts.setNum(4);
+		Weave.defineTarget(getNum_Method, "return num*2;");
+		assertEquals(8, ts.getNum());
+	}
+	
+	@Test
+	public void test_field_2() {
+		ts = new TestStub(3);
+		ts.setObj("s");
+		Weave.defineTarget(getObj_Method, "return obj+\"_hoge\";");
+		assertEquals("s_hoge", ts.getObj());
 	}
 	
 }

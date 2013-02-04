@@ -1,6 +1,6 @@
 package test;
 
-import info.nohoho.weave.Inst;
+import info.nohoho.weave.Weave;
 
 public class Main {
 	
@@ -8,7 +8,7 @@ public class Main {
 
 
 		// Stubクラスを変更可能に
-		Inst.redefineable("test.TestStub");
+		Weave.redefineable("test.TestStub");
 		
 		// Stubクラスを生成
 		StubInterface fc = new TestStub();
@@ -24,7 +24,7 @@ public class Main {
 		}
 
 		// 戻り値の値を変更
-		Inst.defineTarget("test.TestStub","getNum", "return -1;");
+		Weave.defineTarget("test.TestStub","getNum",new Class[]{}, "return -1;");
 		System.err.println("Called Stub.hoge()");
 		System.out.println("return : " + fc.getNum());
 

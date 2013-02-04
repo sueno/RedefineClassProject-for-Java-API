@@ -134,7 +134,7 @@ public class TargetList {
 	 * 
 	 * @return
 	 */
-	public static List<CtClass> getCtClasses() {
+	public static List<CtClass> getWeaveList() {
 		return weaveList;
 	}
 
