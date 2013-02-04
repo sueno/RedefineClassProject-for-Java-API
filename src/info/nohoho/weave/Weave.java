@@ -53,8 +53,9 @@ public class Weave {
 			
 			// 実体のインスタンスを保持するフィールドを定義
 			target.addField(CtField.make("private static java.lang.Class _cloneClass = "+cl.getName()+".class;", target));
-			target.addField(CtField.make("private java.lang.Object _stub_clone;", target));// = new " + cl.getName() + "();", target));
-			//コンストラクタの引数を保持するフィールドを定義
+			target.addField(CtField.make("private java.lang.Object _stub_clone;", target));
+			
+			// コンストラクタの引数を保持するフィールドを定義
 			target.addField(CtField.make("private java.lang.Class[] _const_sig = null;", target));
 			target.addField(CtField.make("private java.lang.Object[] _const_param = null;", target));
 		
@@ -104,7 +105,8 @@ public class Weave {
 								+"}");
 				}
 			}
-
+			
+			// インスタンスを生成するためのクラスを設定するメソッドを追加
 			target.addMethod(CtMethod.make("public static void _set_cloneClass (Class c) {"
 												+"_cloneClass = c;"
 											+"}"
@@ -150,7 +152,7 @@ public class Weave {
 			Method m = Class.forName(className).getDeclaredMethod(methodName,param);
 			return defineTarget(m, src);
 		} catch (Exception ex) {
-//			ex.printStackTrace();
+			ex.printStackTrace();
 		}
 		return false;
 	}
@@ -160,7 +162,7 @@ public class Weave {
 			m.getDeclaringClass().getDeclaredMethod("_set_cloneClass", new Class[]{Class.class}).invoke(null, new Object[]{newClass});
 			return true;
 		} catch (Exception ex) {
-//			ex.printStackTrace();
+			ex.printStackTrace();
 		}
 		return false;
 	}
@@ -184,8 +186,8 @@ public class Weave {
 	}
 
 	private static String getCloneName(String className) {
-		String[] str = className.split("\\.");
-		return "$Clone_"+str[str.length-1];
+		String str = className.replaceAll("\\.", "_");
+		return "$Clone_"+str;
 	}
 	
 	public static boolean extendsFields (Object oldObject, Object newObject) {
