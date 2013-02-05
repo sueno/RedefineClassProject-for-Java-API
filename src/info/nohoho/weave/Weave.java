@@ -18,6 +18,9 @@ import javassist.CtMethod;
 import javassist.Loader;
 import javassist.Modifier;
 import javassist.NotFoundException;
+import javassist.expr.Cast;
+import javassist.expr.ExprEditor;
+import javassist.expr.MethodCall;
 
 @SuppressWarnings("all")
 public class Weave {
@@ -80,7 +83,7 @@ public class Weave {
 			target.addMethod(CtMethod.make(
 						"public void _set_Stub(Class stubClass) {"
 							+"Object oldObject = _stub_clone;"
-							+"if (_const_sig!=null&&_const_sig.length!=0) {"
+							+"if (_const_sig!=nul&&_const_sig.length!=0) {"
 								+"_stub_clone = stubClass.getConstructor(_const_sig).newInstance(_const_param);"
 							+"} else {"
 								+"_stub_clone = stubClass.newInstance();"
@@ -126,6 +129,39 @@ public class Weave {
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
+		return false;
+	}
+	
+	public static boolean redefinesble(String className, String targetClassName) {
+		String cloneName = getCloneName(className+"__"+targetClassName);
+		ClassPool cp = ClassPool.getDefault();
+		try {
+			//change targetClass Method invocation
+			CtClass target = cp.get(targetClassName);
+			CtMethod[] methods = target.getDeclaredMethods();
+			for (CtMethod m : methods) {
+				m.instrument(new ProxyExprEditor(className,cloneName));
+			}
+			target.toClass(Thread.currentThread().getContextClassLoader());
+			
+			// Make Dummy Class
+			CtClass dummy = new CtClass(cloneName) {
+			};
+			for (CtMethod m : methods) {
+				StringBuilder param = new StringBuilder();
+				dummy.addMethod(CtMethod.make(""
+						+"public static "+m.getReturnType().getName()+" "+m.getName()+"("+param+") {"
+							+"return null;"
+						+"}"
+						, dummy));
+			}
+			
+			return true;
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		
+		
 		return false;
 	}
 
