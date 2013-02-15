@@ -18,6 +18,8 @@ public class Driver_MainTest extends TestCase{
 	private static Method getNum_Method;
 	private static Method getObj_Method;
 	private static Method getStr_Method;
+	private static Method getP_num_Method;
+	private static Method getP_obj_Method;
 	
 	static {
 		// test.TestStub クラスを変更可能にする
@@ -27,8 +29,10 @@ public class Driver_MainTest extends TestCase{
 			getNum_Method = test.TestStub.class.getDeclaredMethod("getNum", new Class[]{});
 			getObj_Method = test.TestStub.class.getDeclaredMethod("getObj", new Class[]{});
 			getStr_Method = test.TestStub.class.getDeclaredMethod("getStr", new Class[]{});
+			getP_num_Method = test.TestStub.class.getDeclaredMethod("getP_num", new Class[]{});
+			getP_obj_Method = test.TestStub.class.getDeclaredMethod("getP_obj", new Class[]{});
 		} catch (Exception ex) {
-			
+			ex.printStackTrace();
 		}
 	}
 	
@@ -111,6 +115,22 @@ public class Driver_MainTest extends TestCase{
 		ts.setObj("s");
 		Weave.defineTarget(getObj_Method, "return obj+\"_hoge\";");
 		assertEquals("s_hoge", ts.getObj());
+	}
+	
+	@Test
+	public void test_st_pre() {
+		assertEquals(10,TestStub.getP_num());
+	}
+	
+	@Test
+	public void test_st_obj() {
+		assertEquals("static_obj", TestStub.getP_obj());
+	}
+	
+	@Test
+	public void test_redef_st_pre() {
+		Weave.defineTarget(getP_num_Method, "return -1;");
+		assertEquals(-1, TestStub.getP_num());
 	}
 	
 }

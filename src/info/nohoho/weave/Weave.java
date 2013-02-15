@@ -58,7 +58,7 @@ public class Weave {
 			 * 対象クラスをProxy化
 			 */
 			ClassPool cp = ClassPool.getDefault();
-			cp.importPackage("info.nohoho.weave");
+//			cp.importPackage("info.nohoho.weave");
 			CtClass target = cp.get(className);
 			
 			// 実体のインスタンスを保持するフィールドを定義
@@ -83,7 +83,7 @@ public class Weave {
 			target.addMethod(CtMethod.make(
 						"public void _set_Stub(Class stubClass) {"
 							+"Object oldObject = _stub_clone;"
-							+"if (_const_sig!=nul&&_const_sig.length!=0) {"
+							+"if (_const_sig!=null&&_const_sig.length!=0) {"
 								+"_stub_clone = stubClass.getConstructor(_const_sig).newInstance(_const_param);"
 							+"} else {"
 								+"_stub_clone = stubClass.newInstance();"
@@ -97,19 +97,21 @@ public class Weave {
 			CtMethod[] methods = target.getDeclaredMethods();
 			for (CtMethod m : methods) {
 				String fieldcheck = "";
+				String targetObj = "null";
 				if (!Modifier.isStatic(m.getModifiers())) {
 					fieldcheck = ""
 							+"if (!_stub_clone.getClass().equals(_cloneClass)) {"
 								+"_set_Stub(_cloneClass);"
 							+"}"
 							;
+					targetObj = "_stub_clone";
 				}
 				if (m.getName().equals("_set_Stub")) {
 				}else{
 					m.setBody(
 								"try{"
 									+ fieldcheck
-									+"return ($r)_stub_clone.getClass().getDeclaredMethod(\"" + m.getName() + "\",$sig).invoke(_stub_clone, $args);"
+									+"return ($r)_cloneClass.getDeclaredMethod(\"" + m.getName() + "\",$sig).invoke("+targetObj+", $args);"
 								+"}catch(java.lang.reflect.InvocationTargetException iex) {"
 									+"throw iex.getCause();"
 								+"}");
@@ -132,7 +134,7 @@ public class Weave {
 		return false;
 	}
 	
-	public static boolean redefinesble(String className, String targetClassName) {
+	public static boolean redefineable(String className, String targetClassName) {
 		String cloneName = getCloneName(className+"__"+targetClassName);
 		ClassPool cp = ClassPool.getDefault();
 		try {
@@ -145,17 +147,26 @@ public class Weave {
 			target.toClass(Thread.currentThread().getContextClassLoader());
 			
 			// Make Dummy Class
-			CtClass dummy = new CtClass(cloneName) {
-			};
-			for (CtMethod m : methods) {
+			CtClass apiClass = cp.get(className);
+			CtClass dummy = cp.makeClass(cloneName);
+			for (CtMethod m : apiClass.getDeclaredMethods()) {
 				StringBuilder param = new StringBuilder();
-				dummy.addMethod(CtMethod.make(""
-						+"public static "+m.getReturnType().getName()+" "+m.getName()+"("+param+") {"
-							+"return null;"
-						+"}"
-						, dummy));
+				CtClass[] paramType = m.getParameterTypes();
+				for (int i=0;i<paramType.length;++i) {
+					param.append(paramType[i].getName()+" $"+(int)(i+1)+" ");
+				}
+				System.out.println(m.getReturnType().getName() +" "+m.getName()+" ("+param+")");
+				try {
+					dummy.addMethod(CtMethod.make(""
+							+"public static "+m.getReturnType().getName()+" "+m.getName()+"("+param+") {"
+								+"throw new AbstractMethodError();"
+							+"}"
+							, dummy));
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				}
 			}
-			
+			Class cd = dummy.toClass(Thread.currentThread().getContextClassLoader());
 			return true;
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -176,7 +187,14 @@ public class Weave {
 		// create $Clone_"+className+"
 		try {
 			CtClass targetC = cp.get(className);
-			targetC.setName(getCloneName(className));
+			return makeClass(targetC);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	protected static Class makeClass(CtClass targetC) {
+		try{
+			targetC.setName(getCloneName(targetC.getName()));
 			return targetC.toClass(Thread.currentThread().getContextClassLoader());
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -241,6 +259,14 @@ public class Weave {
 	protected static String getCloneName(String className) {
 		String str = className.replaceAll("\\.", "_");
 		return "$Clone_"+str;
+	}
+	protected static String getFieldName(String methodName, CtClass... paramSig) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(methodName);
+		for (CtClass pSig : paramSig) {
+			sb.append("$" + pSig.getName().replaceAll("\\.|\\[|\\]", "_"));
+		}
+		return sb.toString();
 	}
 	
 	public static boolean extendsFields (Object oldObject, Object newObject) {

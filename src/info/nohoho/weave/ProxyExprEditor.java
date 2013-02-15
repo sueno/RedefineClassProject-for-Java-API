@@ -1,6 +1,8 @@
 package info.nohoho.weave;
 
 import javassist.CannotCompileException;
+import javassist.CtClass;
+import javassist.CtMethod;
 import javassist.expr.ConstructorCall;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
@@ -30,14 +32,19 @@ public class ProxyExprEditor extends ExprEditor {
 	public void edit(MethodCall m) throws CannotCompileException {
 		if (m.getClassName().equals(className)) {
 			try {
-			m.replace("{"
+				m.replace("{"
 					+"System.err.println(\"##WEAVE##  Call Method : "+m.getClassName()+" ."+m.getMethodName()+"\");"
-					+"$_ = \"残念！hogeしか返さないよー！\";"
-					+"/**$_ = $proceed($$);*/"
+//					+"boolean flag = (boolean)Class.forName(\""+cloneName+"\").getDeclaredMethod(\""+m.getMethodName()+"_Exist\",$sig).invoke(null,$args);"
+					+"Class"
+					+"if ((boolean)Class.forName(\""+cloneName+"\").getDeclaredMethod(\""+m.getMethodName()+"_Exist\",$sig).invoke(null,$args)) {"
+						+"$_ = Class.forName(\""+cloneName+"\").getDeclaredMethod(\""+m.getMethodName()+"\",$sig).invoke(null,$args);"
+						+"$_ = $proceed($$);"
+					+"}"
+					+"$_ = $proceed($$);"
 					+"}");
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
 		}
 	}
 }
