@@ -40,6 +40,7 @@ public class Weave {
 //		TargetList.getTargets();
 	}
 
+	
 	/**
 	 * 引数に渡されたクラスを，変更可能にする
 	 * 
@@ -138,13 +139,6 @@ public class Weave {
 		String cloneName = getCloneName(className+"__"+targetClassName);
 		ClassPool cp = ClassPool.getDefault();
 		try {
-			//change targetClass Method invocation
-			CtClass target = cp.get(targetClassName);
-			CtMethod[] methods = target.getDeclaredMethods();
-			for (CtMethod m : methods) {
-				m.instrument(new ProxyExprEditor(className,cloneName));
-			}
-			target.toClass(Thread.currentThread().getContextClassLoader());
 			
 			// Make Dummy Class
 			CtClass apiClass = cp.get(className);
@@ -152,14 +146,21 @@ public class Weave {
 			for (CtMethod m : apiClass.getDeclaredMethods()) {
 				StringBuilder param = new StringBuilder();
 				CtClass[] paramType = m.getParameterTypes();
+				param.append("Object __obj, Class[] __sig, Object[] __args ");
 				for (int i=0;i<paramType.length;++i) {
-					param.append(paramType[i].getName()+" $"+(int)(i+1)+" ");
+					param.append(", "+paramType[i].getName()+" $"+(int)(i+1)+" ");
 				}
-				System.out.println(m.getReturnType().getName() +" "+m.getName()+" ("+param+")");
 				try {
+					String fieldName = getFieldName(m.getName(), paramType);
+					dummy.addField(CtField.make("public static boolean "+ fieldName + " = false;",dummy));
+					String returnParam = m.getReturnType().getName()=="void" ? "":"return ("+m.getReturnType().getName()+")";
 					dummy.addMethod(CtMethod.make(""
 							+"public static "+m.getReturnType().getName()+" "+m.getName()+"("+param+") {"
-								+"throw new AbstractMethodError();"
+								+"if ("+fieldName+"){"
+									+"throw new AbstractMethodError();"
+								+"} else {"
+									+returnParam+"(__obj.getClass().getDeclaredMethod(\""+m.getName()+"\", __sig).invoke(__obj,__args));"
+								+"}"
 							+"}"
 							, dummy));
 				} catch (Exception ex) {
@@ -167,6 +168,14 @@ public class Weave {
 				}
 			}
 			Class cd = dummy.toClass(Thread.currentThread().getContextClassLoader());
+			
+			//change targetClass Method invocation
+			CtClass target = cp.get(targetClassName);
+			CtMethod[] methods = target.getDeclaredMethods();
+			for (CtMethod m : methods) {
+				m.instrument(new ProxyExprEditor(className,cloneName));
+			}
+			target.toClass(Thread.currentThread().getContextClassLoader());
 			return true;
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -262,7 +271,7 @@ public class Weave {
 	}
 	protected static String getFieldName(String methodName, CtClass... paramSig) {
 		StringBuilder sb = new StringBuilder();
-		sb.append(methodName);
+		sb.append("_"+methodName);
 		for (CtClass pSig : paramSig) {
 			sb.append("$" + pSig.getName().replaceAll("\\.|\\[|\\]", "_"));
 		}

@@ -2,13 +2,13 @@ package testAPI;
 
 import java.util.Scanner;
 
-public class App {
+public class App implements AppInterface{
 
-	private Scanner sc;
+	private Integer sc;
 	public App() {
-		sc = new Scanner(System.in);
+		sc = new Integer(10);
 	}
 	public void run () {
-		System.out.println(sc.next());
+		System.out.println(sc.toString());
 	}
 }
